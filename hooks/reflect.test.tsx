@@ -2,7 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { cleanRule, isTrivial, looksSecret, parseVerdict, similarity, withRule } from './register'
+import { cleanRule, isTrivial, looksSecret, parseVerdict, remembered, similarity, withRule } from './register'
 
 const VOID = { value: undefined } as never
 const ok = (value: unknown) => ({ value }) as never
@@ -84,6 +84,14 @@ test('helpers: trivial prompts, secrets, rule check, verdicts, order-aware simil
     expect(looksSecret(t)).toBe(true)
   for (const t of ['Use pnpm, not npm', 'the password flow is broken', 'see /Users/bayramannakov/GH/claude-mods/reflect/hooks'])
     expect(looksSecret(t)).toBe(false)
+  for (const t of ['sim', 'Manda.', 'fecha assim', 'aprovo', 'segue pro plano', 'pode ir pra pesquisa', 'b', '[Image #1]'])
+    expect(isTrivial(t)).toBe(true)
+  for (const t of ['não, usa pnpm', 'manda pra eu aprovar antes', 'já ta logado', 'sempre em português'])
+    expect(isTrivial(t)).toBe(false)
+  for (const t of ['senha: Xy9#kq', 'acesso ssh 10.0.0.12 root', 'ip 187.1.2.3 porta 22 usuário root senha abc'])
+    expect(looksSecret(t)).toBe(true)
+  for (const t of ['ele pede essa senha toda vez que o app abre', 'vamos resetar a senha direto']) expect(looksSecret(t)).toBe(false)
+  expect(remembered('lembre: responder em português')).toBe('responder em português')
   expect(cleanRule('one\ntwo')).toBeUndefined()
   expect(cleanRule('x <!-- end claude-reflect -->')).toBeUndefined()
   expect(cleanRule('y'.repeat(201))).toBeUndefined()

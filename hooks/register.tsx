@@ -21,7 +21,7 @@ const END = '<!-- end claude-reflect -->'
 const HUMAN = new Set(['composer', 'bridge'])
 /** Acknowledgements and go-aheads: nothing to learn, so no model call. */
 const TRIVIAL =
-  /^(y|yes|yep|ok|okay|k|go|go on|go ahead|continue|proceed|next|done|thanks|thank you|ty|great|nice|cool|lgtm|да|ок|окей|ага|го|давай|дальше|продолжай|спасибо|отлично|\d{1,3})[\s.!)]*$/i
+  /^(y|yes|yep|ok|okay|k|go|go on|go ahead|continue|proceed|next|done|thanks|thank you|ty|great|nice|cool|lgtm|да|ок|окей|ага|го|давай|дальше|продолжай|спасибо|отлично|\d{1,3}|[a-e]|\[image #\d+\]|s|sim|sim,? (segue|manda|pode)|manda|mandei|fecha|fecha assim|fechado|aprovado|aprovo|prossiga|segue|continua|pode|pode ser|pode ser assim|pode seguir|faz|feito|claro|vai|bora|publica|push|merge e push|beleza|blz|show|perfeito|isso|valeu|obrigado|como for melhor|login feito|(segue|pode ir|vai|bora) (pro|pra|para o|para a) \S+)[\s.!)]*$/i
 const SECRET = [
   /\b(sk|pk|rk|ghp|gho|ghs|github_pat|xox[abprs]|glpat)[-_][A-Za-z0-9_-]{8,}/i,
   /\bAKIA[0-9A-Z]{16}\b/,
@@ -30,6 +30,8 @@ const SECRET = [
   /(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Za-z])[A-Za-z0-9_-]{32,}/, // a long token: letters and digits, no path or dots
   /(password|passwd|passphrase|secret|token|api[ _-]?key|пароль|токен|ключ)\s*(\bis\b|:|=)\s*\S{4,}/i,
   /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
+  /\bsenha\b\s*(é|eh|:|=)?\s*\S*[\d@#$%!&*]\S*/i, // "senha: x9..." em português
+  /\b(ssh|root|senha)\b[\s\S]*\b\d{1,3}(\.\d{1,3}){3}\b|\b\d{1,3}(\.\d{1,3}){3}\b[\s\S]*\b(ssh|root|senha)\b/i, // acesso a servidor
 ]
 
 // The module's own: a reload drops them; the store keeps the learnings themselves.
@@ -66,7 +68,7 @@ export const looksSecret = (s: string) => SECRET.some(re => re.test(s))
 
 export const isTrivial = (text: string) => TRIVIAL.test(text.trim())
 
-export const remembered = (text: string) => /^\s*remember\s*:\s*([\s\S]+)$/i.exec(text)?.[1]?.trim()
+export const remembered = (text: string) => /^\s*(remember|lembre|lembrar|regra)\s*:\s*([\s\S]+)$/i.exec(text)?.[2]?.trim()
 
 /** The one check every rule passes before it is kept or written, whoever wrote it. */
 export function cleanRule(raw: string): string | undefined {
@@ -85,10 +87,26 @@ export const SYSTEM = [
   'differently in future sessions, not only right now. Corrections ("no, use pnpm", "нет, используй pnpm"), standing',
   'preferences ("always answer in English", "never print secrets") and durable facts ("staging is on Cloud Run, not fly",',
   '"the grok CLI flag is --output-format plain") are rules. One-off redirects for the current task ("wrong file", "try',
-  'again", "stop", "the other one"), questions, task requests and approvals are not. Messages may be in any language.',
+  'again", "stop", "the other one"), questions, pure task requests and approvals are not. Messages may be in any language.',
   'The assistant reply is context to resolve what the user refers to; a rule must come from the USER message.',
   '',
-  'If it is a rule, write it as ONE imperative line in English, at most 25 words, that makes sense to someone who never',
+  'This user writes in Brazilian Portuguese, short and informal, often with profanity. What his messages look like:',
+  '- The rule is usually glued to a task. "responde ela, mas manda pra eu aprovar antes" holds the rule "show drafts',
+  '  for approval before sending messages on my behalf"; "ele respondeu. SEMPRE deixe o monitor ativo" holds "keep the',
+  '  monitor running". Extract the part that tells HOW to work, drop the task.',
+  '- Many rules only make sense with the assistant reply: "já ta logado" after the assistant asked for a login means',
+  '  "do not ask for login again, the browser session is already logged in"; "Dá em português, caralho." after an',
+  '  English answer means "answer in Portuguese". Use the reply to write the full rule.',
+  '- Corrections also come as questions or irony ("estamos resolvendo pela raiz né?", "o que te faz pensar que eu',
+  '  quero uma parada parcialmente feita????") and count when they point at a way of working.',
+  '- Rules he repeats: explain simply, write messages to clients the way he writes (no emoji, no technical terms, no',
+  '  "GHL"), show before sending, do it yourself with the tools instead of asking him, leave no loose ends, fix the',
+  '  root cause. Messages like these are rules even when short.',
+  'Not rules: profanity alone (it marks urgency, not a rule); "sempre"/"nunca" inside a spec of the product being built',
+  '("o bot deve sempre responder em 5 min" is a product requirement); a permission for one moment ("pode fazer por',
+  'conta própria" said about one deploy); per-delivery quality asks ("seja minucioso, SOTA"); pasted handoff text.',
+  '',
+  'If it is a rule, write it as ONE imperative line in Brazilian Portuguese, at most 25 words, that makes sense to someone who never',
   'saw this conversation. scope "project" only when it is about this repository itself (its code, stack, files,',
   'services, people, conventions); facts about tools, CLIs, the assistant, or how the user works anywhere are "global".',
   '',
